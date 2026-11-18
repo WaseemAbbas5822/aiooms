@@ -125,3 +125,104 @@ def me(vendor: models.Vendor = Depends(current_vendor)):
         "shop_name": vendor.shop_name,
         "shop_slug": vendor.shop_slug,
     }
+    
+    # ---------- Products and variants (Feature 2) ----------
+from typing import List
+
+
+class VariantIn(BaseModel):
+    size: str = ""
+    colour: str = ""
+    stock: int = Field(default=0, ge=0)
+
+
+class ProductIn(BaseModel):
+    title: str = Field(min_length=1)
+    description: str = ""
+    price: float = Field(ge=0)
+    image_url: str = ""
+    low_stock_level: int = Field(default=5, ge=0)
+    variants: List[VariantIn] = []
+
+
+def product_out(p: models.Product) -> dict:
+    return {
+        "id": p.id,
+        "title": p.title,
+        "description": p.description,
+        "price": p.price,
+        "image_url": p.image_url,
+        "low_stock_level": p.low_stock_level,
+        "variants": [
+            {"id": v.id, "size": v.size, "colour": v.colour, "stock": v.stock}
+            for v in p.variants
+        ],
+        "low_stock": any(v.stock <= p.low_stock_level for v in p.variants),
+    }
+
+
+def own_product(db: Session, vendor: models.Vendor, product_id: int) -> models.Product:
+    p = db.get(models.Product, product_id)
+    if p is None or p.vendor_id != vendor.id:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return p
+
+
+@app.get("/products")
+def list_products(
+    vendor: models.Vendor = Depends(current_vendor), db: Session = Depends(get_db)
+):
+    items = db.query(models.Product).filter_by(vendor_id=vendor.id).all()
+    return [product_out(p) for p in items]
+
+
+@app.post("/products", status_code=201)
+def create_product(
+    data: ProductIn,
+    vendor: models.Vendor = Depends(current_vendor),
+    db: Session = Depends(get_db),
+):
+    p = models.Product(
+        vendor_id=vendor.id,
+        title=data.title,
+        description=data.description,
+        price=data.price,
+        image_url=data.image_url,
+        low_stock_level=data.low_stock_level,
+        variants=[models.Variant(**v.model_dump()) for v in data.variants],
+    )
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return product_out(p)
+
+
+@app.put("/products/{product_id}")
+def update_product(
+    product_id: int,
+    data: ProductIn,
+    vendor: models.Vendor = Depends(current_vendor),
+    db: Session = Depends(get_db),
+):
+    p = own_product(db, vendor, product_id)
+    p.title = data.title
+    p.description = data.description
+    p.price = data.price
+    p.image_url = data.image_url
+    p.low_stock_level = data.low_stock_level
+    p.variants = [models.Variant(**v.model_dump()) for v in data.variants]
+    db.commit()
+    db.refresh(p)
+    return product_out(p)
+
+
+@app.delete("/products/{product_id}", status_code=204)
+def delete_product(
+    product_id: int,
+    vendor: models.Vendor = Depends(current_vendor),
+    db: Session = Depends(get_db),
+):
+    p = own_product(db, vendor, product_id)
+    db.delete(p)
+    db.commit()
+    
