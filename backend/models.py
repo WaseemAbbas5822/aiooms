@@ -1,6 +1,12 @@
-from sqlalchemy import Column, Float, ForeignKey, Integer, String
+from datetime import datetime, timezone
+
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 from database import Base
+
+
+def utcnow():
+    return datetime.now(timezone.utc)
 
 
 class Vendor(Base):
@@ -38,3 +44,19 @@ class Variant(Base):
     colour = Column(String, default="")
     stock = Column(Integer, default=0)
     product = relationship("Product", back_populates="variants")
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    customer_name = Column(String, nullable=False)
+    customer_contact = Column(String, default="")
+    channel = Column(String, default="shop")  # shop, facebook, instagram
+    direction = Column(String, default="in")  # in = customer, out = vendor
+    text = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    product = relationship("Product")

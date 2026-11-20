@@ -1,7 +1,7 @@
 import os
 import re
 from datetime import datetime, timedelta, timezone
-from typing import List
+from typing import List, Optional
 
 import bcrypt
 import jwt
@@ -53,6 +53,13 @@ class ProductIn(BaseModel):
     image_url: str = ""
     low_stock_level: int = Field(default=5, ge=0)
     variants: List[VariantIn] = []
+
+
+class CustomerMessageIn(BaseModel):
+    customer_name: str = Field(min_length=1, max_length=100)
+    customer_contact: str = Field(default="", max_length=100)
+    text: str = Field(min_length=1, max_length=1000)
+    product_id: Optional[int] = None
 
 
 # ---------- Helpers ----------
@@ -224,3 +231,56 @@ def delete_product(
     p = own_product(db, vendor, product_id)
     db.delete(p)
     db.commit()
+
+
+# ---------- Routes: public shop (Feature 3) ----------
+@app.get("/shops/{slug}")
+def public_shop(slug: str, db: Session = Depends(get_db)):
+    vendor = db.query(models.Vendor).filter_by(shop_slug=slug).first()
+    if vendor is None:
+        raise HTTPException(status_code=404, detail="Shop not found")
+    products = db.query(models.Product).filter_by(vendor_id=vendor.id).all()
+    return {
+        "shop_name": vendor.shop_name,
+        "shop_slug": vendor.shop_slug,
+        "products": [
+            {
+                "id": p.id,
+                "title": p.title,
+                "description": p.description,
+                "price": p.price,
+                "image_url": p.image_url,
+                "variants": [
+                    {"id": v.id, "size": v.size, "colour": v.colour}
+                    for v in p.variants
+                    if v.stock > 0
+                ],
+            }
+            for p in products
+        ],
+    }
+
+
+@app.post("/shops/{slug}/messages", status_code=201)
+def customer_message(
+    slug: str, data: CustomerMessageIn, db: Session = Depends(get_db)
+):
+    vendor = db.query(models.Vendor).filter_by(shop_slug=slug).first()
+    if vendor is None:
+        raise HTTPException(status_code=404, detail="Shop not found")
+    if data.product_id is not None:
+        product = db.get(models.Product, data.product_id)
+        if product is None or product.vendor_id != vendor.id:
+            raise HTTPException(status_code=400, detail="Invalid product")
+    msg = models.Message(
+        vendor_id=vendor.id,
+        product_id=data.product_id,
+        customer_name=data.customer_name,
+        customer_contact=data.customer_contact,
+        text=data.text,
+        channel="shop",
+        direction="in",
+    )
+    db.add(msg)
+    db.commit()
+    return {"status": "sent"}
