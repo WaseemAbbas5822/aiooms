@@ -1,6 +1,7 @@
 import os
 import re
 from datetime import datetime, timedelta, timezone
+from typing import List
 
 import bcrypt
 import jwt
@@ -15,7 +16,7 @@ from database import engine, get_db
 
 models.Base.metadata.create_all(bind=engine)
 
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me-dev-secret-32bytes")
 ALGORITHM = "HS256"
 TOKEN_HOURS = 24
 
@@ -24,7 +25,7 @@ oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/login")
 app = FastAPI(title="AIOOMS API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+):3000",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -37,6 +38,21 @@ class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6, max_length=72)
     shop_name: str = Field(min_length=1)
+
+
+class VariantIn(BaseModel):
+    size: str = ""
+    colour: str = ""
+    stock: int = Field(default=0, ge=0)
+
+
+class ProductIn(BaseModel):
+    title: str = Field(min_length=1)
+    description: str = ""
+    price: float = Field(ge=0)
+    image_url: str = ""
+    low_stock_level: int = Field(default=5, ge=0)
+    variants: List[VariantIn] = []
 
 
 # ---------- Helpers ----------
@@ -75,7 +91,30 @@ def current_vendor(
     return vendor
 
 
-# ---------- Routes ----------
+def product_out(p: models.Product) -> dict:
+    return {
+        "id": p.id,
+        "title": p.title,
+        "description": p.description,
+        "price": p.price,
+        "image_url": p.image_url,
+        "low_stock_level": p.low_stock_level,
+        "variants": [
+            {"id": v.id, "size": v.size, "colour": v.colour, "stock": v.stock}
+            for v in p.variants
+        ],
+        "low_stock": any(v.stock <= p.low_stock_level for v in p.variants),
+    }
+
+
+def own_product(db: Session, vendor: models.Vendor, product_id: int) -> models.Product:
+    p = db.get(models.Product, product_id)
+    if p is None or p.vendor_id != vendor.id:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return p
+
+
+# ---------- Routes: basic and auth (Feature 1) ----------
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -125,49 +164,9 @@ def me(vendor: models.Vendor = Depends(current_vendor)):
         "shop_name": vendor.shop_name,
         "shop_slug": vendor.shop_slug,
     }
-    
-    # ---------- Products and variants (Feature 2) ----------
-from typing import List
 
 
-class VariantIn(BaseModel):
-    size: str = ""
-    colour: str = ""
-    stock: int = Field(default=0, ge=0)
-
-
-class ProductIn(BaseModel):
-    title: str = Field(min_length=1)
-    description: str = ""
-    price: float = Field(ge=0)
-    image_url: str = ""
-    low_stock_level: int = Field(default=5, ge=0)
-    variants: List[VariantIn] = []
-
-
-def product_out(p: models.Product) -> dict:
-    return {
-        "id": p.id,
-        "title": p.title,
-        "description": p.description,
-        "price": p.price,
-        "image_url": p.image_url,
-        "low_stock_level": p.low_stock_level,
-        "variants": [
-            {"id": v.id, "size": v.size, "colour": v.colour, "stock": v.stock}
-            for v in p.variants
-        ],
-        "low_stock": any(v.stock <= p.low_stock_level for v in p.variants),
-    }
-
-
-def own_product(db: Session, vendor: models.Vendor, product_id: int) -> models.Product:
-    p = db.get(models.Product, product_id)
-    if p is None or p.vendor_id != vendor.id:
-        raise HTTPException(status_code=404, detail="Product not found")
-    return p
-
-
+# ---------- Routes: products and variants (Feature 2) ----------
 @app.get("/products")
 def list_products(
     vendor: models.Vendor = Depends(current_vendor), db: Session = Depends(get_db)
@@ -225,4 +224,3 @@ def delete_product(
     p = own_product(db, vendor, product_id)
     db.delete(p)
     db.commit()
-    
