@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Product,
   ProductInput,
@@ -119,6 +120,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold">{shop?.shop_name ?? "Dashboard"}</h1>
           {shop && <p className="text-sm text-gray-500">Shop link: /business/{shop.shop_slug}</p>}
         </div>
+        <Link href="/inbox" className="mr-3 text-sm underline">Inbox and orders</Link>
         <button
           className="rounded border px-3 py-1 text-sm"
           onClick={() => {

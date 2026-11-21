@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -60,3 +60,21 @@ class Message(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     product = relationship("Product")
+
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False, index=True)
+    message_id = Column(Integer, ForeignKey("messages.id"), nullable=True)
+    variant_id = Column(Integer, nullable=True)
+    customer_name = Column(String, nullable=False)
+    customer_contact = Column(String, default="")
+    product_title = Column(String, nullable=False)
+    variant_label = Column(String, default="")
+    quantity = Column(Integer, nullable=False)
+    unit_price = Column(Float, nullable=False)
+    status = Column(String, default="Pending")
+    stock_restored = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
