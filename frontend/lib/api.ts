@@ -118,3 +118,31 @@ export const createOrder = (d: { message_id: number; variant_id: number; quantit
   authFetch("/orders", { method: "POST", body: JSON.stringify(d) });
 export const setOrderStatus = (id: number, status: string) =>
   authFetch(`/orders/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
+
+export type DashboardSummary = {
+  shop_name: string;
+  shop_link: string;
+  totals: { products: number; orders: number; messages: number };
+  products: { id: number; title: string; total_stock: number; variant_count: number }[];
+  low_stock_items: {
+    product_id: number;
+    title: string;
+    size: string;
+    colour: string;
+    stock: number;
+    low_stock_level: number;
+  }[];
+  orders_by_status: Record<string, number>;
+  messages_by_channel: Record<string, number>;
+  products_performance: { title: string; enquiries: number; orders: number }[];
+  daily: {
+    date: string;
+    orders_today: number;
+    sales_today: number;
+    cod_to_collect: number;
+    low_stock_count: number;
+  };
+};
+
+export const getDashboardSummary = (): Promise<DashboardSummary> =>
+  authFetch("/dashboard/summary");

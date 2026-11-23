@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Summary from "./Summary";
 import {
   Product,
   ProductInput,
@@ -141,6 +142,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <Summary refreshKey={products} />
       <form onSubmit={onSubmit} className="mb-8 space-y-4 rounded border p-4">
         <h2 className="font-semibold">{editingId ? "Edit product" : "Add product"}</h2>
 
