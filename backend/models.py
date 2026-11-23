@@ -57,6 +57,7 @@ class Message(Base):
     channel = Column(String, default="shop")  # shop, facebook, instagram
     direction = Column(String, default="in")  # in = customer, out = vendor
     text = Column(String, nullable=False)
+    page_id = Column(String, nullable=True)  # Facebook page the message came through
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     product = relationship("Product")
@@ -78,3 +79,13 @@ class Order(Base):
     status = Column(String, default="Pending")
     stock_restored = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class ChannelAccount(Base):
+    __tablename__ = "channel_accounts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False, index=True)
+    channel = Column(String, default="facebook")
+    page_id = Column(String, unique=True, index=True, nullable=False)
+    access_token = Column(String, nullable=False)

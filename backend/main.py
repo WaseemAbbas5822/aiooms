@@ -3,6 +3,10 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import bcrypt
 import jwt
 from fastapi import Depends, FastAPI, HTTPException
@@ -11,6 +15,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
+import meta
 import models
 from database import engine, get_db
 
@@ -33,6 +38,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(meta.router)
 
 
 # ---------- Schemas ----------
@@ -84,6 +90,11 @@ class OrderIn(BaseModel):
 
 class StatusIn(BaseModel):
     status: str
+
+
+class ConnectIn(BaseModel):
+    page_id: str
+    access_token: str
 
 
 # ---------- Helpers ----------
@@ -396,12 +407,15 @@ def reply_message(
     src = db.get(models.Message, message_id)
     if src is None or src.vendor_id != vendor.id:
         raise HTTPException(status_code=404, detail="Message not found")
+    if src.channel == "facebook" and src.customer_contact and src.page_id:
+        meta.send_facebook_reply(db, src.page_id, src.customer_contact, data.text)
     m = models.Message(
         vendor_id=vendor.id,
         product_id=src.product_id,
         customer_name=src.customer_name,
         customer_contact=src.customer_contact,
         channel=src.channel,
+        page_id=src.page_id,
         direction="out",
         text=data.text,
     )
@@ -482,3 +496,24 @@ def update_order_status(
     db.commit()
     db.refresh(order)
     return order_out(order)
+
+
+# ---------- Routes: connect Facebook pages (Meta) ----------
+@app.post("/channels/facebook", status_code=201)
+def connect_facebook(
+    data: ConnectIn,
+    vendor: models.Vendor = Depends(current_vendor),
+    db: Session = Depends(get_db),
+):
+    acct = db.query(models.ChannelAccount).filter_by(page_id=data.page_id).first()
+    if acct:
+        acct.vendor_id = vendor.id
+        acct.access_token = data.access_token
+    else:
+        db.add(
+            models.ChannelAccount(
+                vendor_id=vendor.id, page_id=data.page_id, access_token=data.access_token
+            )
+        )
+    db.commit()
+    return {"status": "connected"}

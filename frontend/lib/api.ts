@@ -77,3 +77,44 @@ export const updateProduct = (id: number, d: ProductInput) =>
   authFetch(`/products/${id}`, { method: "PUT", body: JSON.stringify(d) });
 export const deleteProduct = (id: number) =>
   authFetch(`/products/${id}`, { method: "DELETE" });
+
+
+export type InboxMessage = {
+  id: number;
+  customer_name: string;
+  customer_contact: string;
+  channel: string;
+  direction: string;
+  text: string;
+  created_at: string | null;
+  product: {
+    id: number;
+    title: string;
+    variants: { id: number; size: string; colour: string; stock: number }[];
+  } | null;
+};
+export type Order = {
+  id: number;
+  customer_name: string;
+  product_title: string;
+  variant_label: string;
+  quantity: number;
+  unit_price: number;
+  total: number;
+  status: string;
+};
+
+export const listMessages = (): Promise<InboxMessage[]> => authFetch("/messages");
+export const replyMessage = (id: number, text: string) =>
+  authFetch(`/messages/${id}/reply`, { method: "POST", body: JSON.stringify({ text }) });
+export const simulateMessage = (d: {
+  customer_name: string;
+  channel: string;
+  text: string;
+  product_id: number | null;
+}) => authFetch("/messages/simulate", { method: "POST", body: JSON.stringify(d) });
+export const listOrders = (): Promise<Order[]> => authFetch("/orders");
+export const createOrder = (d: { message_id: number; variant_id: number; quantity: number }) =>
+  authFetch("/orders", { method: "POST", body: JSON.stringify(d) });
+export const setOrderStatus = (id: number, status: string) =>
+  authFetch(`/orders/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
