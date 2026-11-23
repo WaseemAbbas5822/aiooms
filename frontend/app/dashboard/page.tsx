@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Product,
   ProductInput,
@@ -117,17 +118,27 @@ export default function DashboardPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">{shop?.shop_name ?? "Dashboard"}</h1>
-          {shop && <p className="text-sm text-gray-500">Shop link: /business/{shop.shop_slug}</p>}
+          {shop && (
+            <p className="text-sm text-gray-500">
+              Shop link:{" "}
+              <Link href={`/business/${shop.shop_slug}`} className="underline">
+                /business/{shop.shop_slug}
+              </Link>
+            </p>
+          )}
         </div>
-        <button
-          className="rounded border px-3 py-1 text-sm"
-          onClick={() => {
-            logout();
-            router.replace("/login");
-          }}
-        >
-          Logout
-        </button>
+        <div className="flex items-center gap-3">
+          <Link href="/inbox" className="text-sm underline">Inbox and orders</Link>
+          <button
+            className="rounded border px-3 py-1 text-sm"
+            onClick={() => {
+              logout();
+              router.replace("/login");
+            }}
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       <form onSubmit={onSubmit} className="mb-8 space-y-4 rounded border p-4">
