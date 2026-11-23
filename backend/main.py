@@ -15,6 +15,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
+import analytics
 import meta
 import models
 from database import engine, get_db
@@ -496,6 +497,14 @@ def update_order_status(
     db.commit()
     db.refresh(order)
     return order_out(order)
+
+
+# ---------- Routes: dashboard and analytics (Feature 5) ----------
+@app.get("/dashboard/summary")
+def dashboard_summary(
+    vendor: models.Vendor = Depends(current_vendor), db: Session = Depends(get_db)
+):
+    return analytics.build_dashboard(db, vendor)
 
 
 # ---------- Routes: connect Facebook pages (Meta) ----------
