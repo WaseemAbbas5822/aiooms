@@ -54,7 +54,12 @@ export default function DashboardPage() {
       router.replace("/login");
       return;
     }
-    getMe().then(setShop).catch(handleError);
+    getMe()
+      .then((me) => {
+        if (me.role === "admin") router.replace("/admin");
+        else setShop(me);
+      })
+      .catch(handleError);
     load();
   }, [router, load, handleError]);
 

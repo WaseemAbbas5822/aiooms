@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+﻿from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
@@ -18,6 +18,9 @@ class Vendor(Base):
     password_hash = Column(String, nullable=False)
     shop_name = Column(String, nullable=False)
     shop_slug = Column(String, unique=True, index=True, nullable=False)
+    role = Column(String, default="vendor")  # vendor or admin
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
 
 
 class Product(Base):
