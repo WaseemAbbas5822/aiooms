@@ -15,6 +15,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
+import admin
 import analytics
 import meta
 import models
@@ -131,6 +132,14 @@ def current_vendor(
     vendor = db.get(models.Vendor, vendor_id)
     if vendor is None:
         raise HTTPException(status_code=401, detail="Vendor not found")
+    if vendor.is_active is False:
+        raise HTTPException(status_code=401, detail="Account suspended")
+    return vendor
+
+
+def current_admin(vendor: models.Vendor = Depends(current_vendor)) -> models.Vendor:
+    if vendor.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access only")
     return vendor
 
 
@@ -233,6 +242,8 @@ def login(
     vendor = db.query(models.Vendor).filter_by(email=form.username.lower()).first()
     if vendor is None or not verify_password(form.password, vendor.password_hash):
         raise HTTPException(status_code=401, detail="Wrong email or password")
+    if vendor.is_active is False:
+        raise HTTPException(status_code=403, detail="This account has been suspended")
     return {"access_token": make_token(vendor.id), "token_type": "bearer"}
 
 
@@ -244,6 +255,7 @@ def me(vendor: models.Vendor = Depends(current_vendor)):
         "email": vendor.email,
         "shop_name": vendor.shop_name,
         "shop_slug": vendor.shop_slug,
+        "role": vendor.role or "vendor",
     }
 
 
@@ -311,7 +323,7 @@ def delete_product(
 @app.get("/shops/{slug}")
 def public_shop(slug: str, db: Session = Depends(get_db)):
     vendor = db.query(models.Vendor).filter_by(shop_slug=slug).first()
-    if vendor is None:
+    if vendor is None or vendor.is_active is False:
         raise HTTPException(status_code=404, detail="Shop not found")
     products = db.query(models.Product).filter_by(vendor_id=vendor.id).all()
     return {
@@ -340,7 +352,7 @@ def customer_message(
     slug: str, data: CustomerMessageIn, db: Session = Depends(get_db)
 ):
     vendor = db.query(models.Vendor).filter_by(shop_slug=slug).first()
-    if vendor is None:
+    if vendor is None or vendor.is_active is False:
         raise HTTPException(status_code=404, detail="Shop not found")
     if data.product_id is not None:
         product = db.get(models.Product, data.product_id)
@@ -505,6 +517,44 @@ def dashboard_summary(
     vendor: models.Vendor = Depends(current_vendor), db: Session = Depends(get_db)
 ):
     return analytics.build_dashboard(db, vendor)
+
+
+# ---------- Routes: platform admin ----------
+class ActiveIn(BaseModel):
+    is_active: bool
+
+
+@app.get("/admin/overview")
+def admin_overview(
+    admin_user: models.Vendor = Depends(current_admin), db: Session = Depends(get_db)
+):
+    return admin.build_overview(db)
+
+
+@app.get("/admin/vendors")
+def admin_vendors(
+    search: str = "",
+    admin_user: models.Vendor = Depends(current_admin),
+    db: Session = Depends(get_db),
+):
+    return admin.build_vendor_rows(db, search)
+
+
+@app.patch("/admin/vendors/{vendor_id}/active")
+def admin_set_active(
+    vendor_id: int,
+    data: ActiveIn,
+    admin_user: models.Vendor = Depends(current_admin),
+    db: Session = Depends(get_db),
+):
+    target = db.get(models.Vendor, vendor_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    if target.role == "admin":
+        raise HTTPException(status_code=400, detail="Admin accounts cannot be suspended")
+    target.is_active = data.is_active
+    db.commit()
+    return {"id": target.id, "is_active": target.is_active}
 
 
 # ---------- Routes: connect Facebook pages (Meta) ----------

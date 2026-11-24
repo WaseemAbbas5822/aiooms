@@ -146,3 +146,40 @@ export type DashboardSummary = {
 
 export const getDashboardSummary = (): Promise<DashboardSummary> =>
   authFetch("/dashboard/summary");
+
+
+export type AdminOverview = {
+  vendors: {
+    total: number;
+    active: number;
+    suspended: number;
+    new_today: number;
+    new_7_days: number;
+    new_30_days: number;
+  };
+  totals: { products: number; orders: number; messages: number; sales: number };
+  orders_by_status: Record<string, number>;
+  messages_by_channel: Record<string, number>;
+  low_stock_items: number;
+};
+
+export type AdminVendor = {
+  id: number;
+  name: string;
+  email: string;
+  shop_name: string;
+  shop_slug: string;
+  is_active: boolean;
+  joined: string | null;
+  products: number;
+  orders: number;
+  messages: number;
+  sales: number;
+  facebook_connected: boolean;
+};
+
+export const getAdminOverview = (): Promise<AdminOverview> => authFetch("/admin/overview");
+export const listAdminVendors = (search = ""): Promise<AdminVendor[]> =>
+  authFetch(`/admin/vendors?search=${encodeURIComponent(search)}`);
+export const setVendorActive = (id: number, is_active: boolean) =>
+  authFetch(`/admin/vendors/${id}/active`, { method: "PATCH", body: JSON.stringify({ is_active }) });
