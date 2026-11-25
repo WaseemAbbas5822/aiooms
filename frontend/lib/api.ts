@@ -1,4 +1,11 @@
-export const API_URL = "http://127.0.0.1:8000";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+
+// Adds a header so ngrok (free plan) does not show its browser warning page.
+export function apiFetch(url: string, init: RequestInit = {}) {
+  const headers = new Headers(init.headers);
+  headers.set("ngrok-skip-browser-warning", "true");
+  return fetch(url, { ...init, headers });
+}
 
 export type Variant = { id?: number; size: string; colour: string; stock: number };
 export type Product = {
@@ -19,7 +26,7 @@ export async function registerVendor(data: {
   password: string;
   shop_name: string;
 }) {
-  const res = await fetch(`${API_URL}/auth/register`, {
+  const res = await apiFetch(`${API_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -33,7 +40,7 @@ export async function loginVendor(email: string, password: string) {
   const form = new URLSearchParams();
   form.set("username", email);
   form.set("password", password);
-  const res = await fetch(`${API_URL}/auth/login`, {
+  const res = await apiFetch(`${API_URL}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: form,
@@ -50,7 +57,7 @@ export function logout() {
 
 async function authFetch(path: string, options: RequestInit = {}) {
   const token = localStorage.getItem("token") || "";
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await apiFetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
