@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { API_URL } from "@/lib/api";
+import { API_URL, apiFetch } from "@/lib/api";
 
 type PublicProduct = {
   id: number;
@@ -15,7 +15,7 @@ type Shop = { shop_name: string; shop_slug: string; products: PublicProduct[] };
 
 const grads = ["from-indigo-500 to-violet-500", "from-sky-500 to-cyan-400", "from-emerald-500 to-teal-400", "from-rose-500 to-orange-400", "from-fuchsia-500 to-pink-400"];
 
-export default function ShopPage() {
+function ShopView() {
   const { slug } = useParams<{ slug: string }>();
   const [shop, setShop] = useState<Shop | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -28,7 +28,7 @@ export default function ShopPage() {
   const [q, setQ] = useState("");
 
   useEffect(() => {
-    fetch(`${API_URL}/shops/${slug}`)
+    apiFetch(`${API_URL}/shops/${slug}`)
       .then(async (res) => {
         if (!res.ok) {
           setNotFound(true);
@@ -48,7 +48,7 @@ export default function ShopPage() {
   async function send(e: React.FormEvent, productId: number) {
     e.preventDefault();
     setStatus("");
-    const res = await fetch(`${API_URL}/shops/${slug}/messages`, {
+    const res = await apiFetch(`${API_URL}/shops/${slug}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -200,5 +200,13 @@ export default function ShopPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ShopPage() {
+  return (
+    <Suspense fallback={<main className="p-8 text-slate-400">Loading shop...</main>}>
+      <ShopView />
+    </Suspense>
   );
 }

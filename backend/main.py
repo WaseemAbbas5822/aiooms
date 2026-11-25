@@ -35,7 +35,7 @@ oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/login")
 app = FastAPI(title="AIOOMS API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+):3000",
+    allow_origin_regex=r"(http://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+):3000|https://[a-zA-Z0-9-]+\.vercel\.app)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
